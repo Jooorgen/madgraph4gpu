@@ -4,6 +4,7 @@ stages:
 variables:
   # Settings to fetch recursive repositories
   GIT_SUBMODULE_STRATEGY: recursive
+  GIT_SUBMODULE_DEPTH: 1
 
   # Global variables used across all included CI files
   TARGET_REPO_URL: "https://gitlab.cern.ch/joteig/madgraph5-gen-code-test.git"
