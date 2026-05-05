@@ -3,8 +3,8 @@ stages:
 
 variables:
   # Global variables used across all included CI files
-  TARGET_REPO_URL: "https://gitlab.cern.ch/joteig/madgraph5-gen-code-test.git"
-  TARGET_REPO_NAME: "madgraph5-gen-code-test"
+  TARGET_REPO_URL: "https://gitlab.cern.ch/joteig/madgraph5-gen-code-test.git" # CHANGE ME
+  TARGET_REPO_NAME: "madgraph5-gen-code-test" # CHANGE ME
 
 include:
   - local: '.gitlab/ci/codegen.gitlab-ci.yml'
