@@ -1,0 +1,81 @@
+generate-and-check:
+  stage: generate-and-verify
+  image: python:3.11
+  parallel:
+    matrix:
+      - PROCESS: [pp_ttx, pp_ttxj]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "external_pull_request_event"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  
+  before_script:
+    - apt-get update && apt-get install -y git clang-format curl
+    - git config --global user.name "gitlab-ci-bot"
+    - git config --global user.email "gitlab-ci@cern.ch"
+    
+    # Coalesce GitHub Mirror vs Native GitLab variables
+    - export PR_ID=${CI_EXTERNAL_PULL_REQUEST_IID:-$CI_MERGE_REQUEST_IID}
+    - export PR_TITLE="${CI_EXTERNAL_PULL_REQUEST_TITLE:-$CI_MERGE_REQUEST_TITLE}"
+    - export PR_URL="${CI_PROJECT_URL}/-/merge_requests/${PR_ID}"
+    - export PR_AUTHOR="${CI_EXTERNAL_PULL_REQUEST_AUTHOR_USERNAME:-$GITLAB_USER_LOGIN}"
+    - export PROC_DIR="PROC_${PROCESS}"
+
+  script:
+    # 1. Replicate Symlink Logic
+    - |
+      if [ ! -e MG5aMC/mg5amcnlo/PLUGIN/CUDACPP_SA_OUTPUT ] ; then 
+        pushd MG5aMC/mg5amcnlo/PLUGIN/
+        ln -s ../../../epochX/cudacpp/CODEGEN/PLUGIN/CUDACPP_SA_OUTPUT
+        popd
+      fi
+    
+    # 2. Run Code Generator
+    - ./MG5aMC/mg5amcnlo/bin/mg5_aMC test/processes/${PROCESS}/output.mg5
+    
+    # 3. Check Format
+    - chmod +x .gitlab/scripts/check-formatting.sh
+    - cd ${CI_PROJECT_DIR}/${PROC_DIR}
+    - ${CI_PROJECT_DIR}/.github/workflows/check-formatting.sh
+    - FILES2FORMAT=$(cat files2format)
+    
+    # 4. Conditional Push Logic
+    - |
+      if [ "$FILES2FORMAT" -eq "0" ]; then
+        echo "✅ Format check passed."
+        cd ${CI_PROJECT_DIR}
+        
+        # Clone target repo using OAuth2 token
+        git clone "https://oauth2:${GITLAB_ACCESS_TOKEN}@${TARGET_REPO_URL}" ${TARGET_REPO_NAME}
+        cd ${TARGET_REPO_NAME}
+        
+        # Branching
+        BRANCH_NAME="codegen-pr-${PR_ID}"
+        git checkout -b ${BRANCH_NAME} || git checkout ${BRANCH_NAME}
+        cp -r ${CI_PROJECT_DIR}/${PROC_DIR} .
+        
+        git add .
+        git commit -m "Code generated from PR #${PR_ID}" -m "Source: ${PR_URL}"
+        git push -f origin ${BRANCH_NAME}
+        
+        # 5. Update README
+        git checkout main
+        python3 ${CI_PROJECT_DIR}/.gitlab/scripts/update_readme.py \
+          --title "${PR_TITLE}" \
+          --url "${PR_URL}" \
+          --pr_num "${PR_ID}" \
+          --created "${CI_PIPELINE_CREATED_AT}" \
+          --last_updated "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+          --wip "${CI_MERGE_REQUEST_EVENT_TYPE:-false}" \
+          --num_commits "1" \
+          --author "${PR_AUTHOR}"
+        
+        git add .
+        git commit -m "Update README for PR #${PR_ID}"
+        git push -f origin main
+        
+      else
+        echo "❌ Format check failed."
+        # Use GitLab API to post the patch if this is a native GitLab MR
+        # (Optional: Use curl to post back to GitHub if mirroring)
+        exit 1
+      fi
