@@ -9,7 +9,7 @@ generate-and-check:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   
   before_script:
-    - apt-get update && apt-get install -y git clang-format curl
+    - apt-get update && apt-get install -y git clang-format curl build-essential
     - pip install six future
     - git config --global user.name "gitlab-ci-bot"
     - git config --global user.email "gitlab-ci@cern.ch"
