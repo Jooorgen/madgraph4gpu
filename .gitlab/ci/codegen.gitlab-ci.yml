@@ -34,9 +34,9 @@ generate-and-check:
     - ./MG5aMC/mg5amcnlo/bin/mg5_aMC test/processes/${PROCESS}/output.mg5
     
     # 3. Check Format
-    - chmod +x .gitlab/scripts/check-formatting.sh
+    - chmod +x .gitlab/ci/check-formatting.sh
     - cd ${CI_PROJECT_DIR}/${PROC_DIR}
-    - ${CI_PROJECT_DIR}/.github/workflows/check-formatting.sh
+    - ${CI_PROJECT_DIR}/.gitlab/ci/check-formatting.sh
     - FILES2FORMAT=$(cat files2format)
     
     # 4. Conditional Push Logic
@@ -60,7 +60,7 @@ generate-and-check:
         
         # 5. Update README
         git checkout main
-        python3 ${CI_PROJECT_DIR}/.gitlab/scripts/update_readme.py \
+        python3 ${CI_PROJECT_DIR}/.gitlab/ci/update_readme.py \
           --title "${PR_TITLE}" \
           --url "${PR_URL}" \
           --pr_num "${PR_ID}" \
@@ -76,7 +76,5 @@ generate-and-check:
         
       else
         echo "❌ Format check failed."
-        # Use GitLab API to post the patch if this is a native GitLab MR
-        # (Optional: Use curl to post back to GitHub if mirroring)
         exit 1
       fi
